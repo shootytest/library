@@ -1,6 +1,6 @@
 import { ctx, main } from "./index.js";
 import { draw, svg } from "./draw.js";
-import { player } from "./objects.js";
+import { Newspaper, player } from "./objects.js";
 
 export const camera = {
   cx: 0,
@@ -8,10 +8,13 @@ export const camera = {
   z: 0,
   tx: 0,
   ty: 0,
-  scale: 10,
+  scale: 1,
   smoothness: 0.09,
   get tscale() {
-    return 1;
+    return 1000;
+  },
+  get size() {
+    return main.size / this.scale;
   },
   get x() {
     return this.cx - this.scale / 2;
@@ -57,19 +60,38 @@ export const camera = {
   },
   convert: function(x, y, scale = camera.scale) {
     return {
-      x: main.width / 2 + (x - camera.cx) * main.size / scale,
-      y: main.height / 2 + (y - camera.cy) * main.size / scale
+      x: main.cx + (x - camera.cx) * main.size / scale,
+      y: main.cy + (y - camera.cy) * main.size / scale
     };
   },
   convertback: function(x, y, scale = camera.scale) {
     return {
-      x: (x - view.cx) * scale / main.size + camera.cx,
-      y: (y - view.cy) * scale / main.size + camera.cy
+      x: (x - main.cx) * scale / main.size + camera.cx,
+      y: (y - main.cy) * scale / main.size + camera.cy
     };
   },
-  draw: function() {
-    // todo ui
-    
+  draw_before: function() {
+    let x = main.cx, y = main.cy, w = main.size, h = main.size, size = main.size * 0.05;
+    y += h / 2 - size;
+    ctx.fillStyle = "rebeccapurple";
+    ctx.beginPath();
+    draw.rectangle(x, y, w + 1, size * 2 + 1);
+    ctx.fill();
+    ctx.fillStyle = "white";
+    x -= w / 2 - size * 1.5;
+    for (let i = 0; i < player.inVENTory.length; i++) {
+      ctx.beginPath();
+      draw.rectangle(x, y, size, size);
+      ctx.fill();
+      const n = Newspaper.newspapers[player.inVENTory[i]];
+      if (n) {
+        n.target = { x, y };
+      }
+      x += size * 2;
+    }
+  },
+  draw_after: function() {
+
   },
 
 };

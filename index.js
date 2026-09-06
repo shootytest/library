@@ -2,7 +2,7 @@ import { camera } from "./camera.js";
 import { draw } from "./draw.js";
 import { player, Player, Thing } from "./objects.js";
 
-// so you can do list.remove(item in list) 
+// so you can do list.remove(item in list)
 if (!Array.prototype.remove) {
   Array.prototype.remove = function(value) {
     const index = this.indexOf(value);
@@ -19,6 +19,8 @@ export const ctx = canvas.getContext("2d");
 export const main = {
   width: window.innerWidth,
   height: window.innerHeight,
+  cx: window.innerWidth / 2,
+  cy: window.innerHeight / 2,
   size: 1,
   mobile: false,
   keys: {},
@@ -49,16 +51,25 @@ function test() {
 };
 
 
-function drawmain() {
-  ctx.fillStyle = "skyblue";
+function draw_main() {
+  ctx.save();
+  ctx.fillStyle = "darkslategray";
   ctx.fillRect(0, 0, main.width, main.height);
-  Thing.drawall();
+  ctx.fillStyle = "skyblue";
+  ctx.beginPath();
+  draw.rectangle(main.cx, main.cy, main.size, main.size);
+  ctx.fill();
+  ctx.clip();
+  camera.draw_before();
+  Thing.draw_all();
+  camera.draw_after();
+  ctx.restore();
 };
 
 function tick(time) {
-  drawmain();
+  draw_main();
   camera.tick();
-  camera.draw();
+  Thing.tick_all();
   const dx = (main.keys["KeyA"] || main.keys["ArrowLeft"]) ? -1 : (main.keys["KeyD"] || main.keys["ArrowRight"]) ? 1: 0;
   player.move(dx * 5, 0);
   if (main.keys["KeyE"] === 2 || main.keys["Enter"] === 2){
@@ -76,6 +87,9 @@ function resize() {
   canvas.height = main.height * main.ratio;
   ctx.scale(main.ratio, main.ratio);
   main.mobile = main.width < main.height;
+  main.cx = main.width / 2;
+  main.cy = main.height / 2;
+  main.size = Math.min(main.width, main.height);
 };
 
 function keytick() {
