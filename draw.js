@@ -1,3 +1,4 @@
+import { images } from "./data.js";
 import { ctx } from "./index.js";
 import { createNoise2D, createNoise3D, createNoise4D } from "https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/+esm";
 
@@ -97,6 +98,7 @@ export const draw = {
     return lines;
   },
   split_text: function(text, x, y, w, h, fontsize) {
+    fontsize = Math.round(fontsize);
     let lines = [];
     for (const t of text.split("\n")) {
       lines = lines.concat(draw.split_text_(t, x, y, w, h, fontsize));
@@ -109,6 +111,16 @@ export const draw = {
       yy += gap;
     }
     return lines.length;
+  },
+  image: function(image, x, y, w, h, flip = false) {
+    if (flip) {
+      ctx.save();
+      ctx.scale(-1, 1);
+      x *= -1;
+    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(typeof image === "string" ? images[image] : image, x - w / 2, y - h / 2, w, h);
+    if (flip) ctx.restore();
   },
   svg: function(name, x, y, r, a = 0) {
     if (!svg[name]) {
