@@ -1,14 +1,35 @@
 const { World, Shape, Fixture, Body, Contact, Vec2, Box, Circle } = planck;
 import { ctx, main, mouse } from "./index.js";
-import { images, levels } from "./data.js";
+import { images, everything } from "./data.js";
 import { draw } from "./draw.js";
 import { camera } from "./camera.js";
+
+
+
 
 const SCALE = 100;
 const world = new World({
   gravity: new Vec2(0.0, 9.81),
   allowSleep: true,
 });
+
+function presolve(f1, f2, contact) {
+  const requirement = f1.thing.player && f2.thing.oneway;
+  if (!requirement) return;
+  if (f2.thing.height >= 10000) return;
+  const { x, y } = player.body.getPosition();
+  const f2y = f2.thing.ycd / SCALE + f2.thing.height / SCALE / 2 * (f2.thing.height <= 10 ? -1 : 1);
+  const v = player.body.getLinearVelocity();
+  if (y + player.height / SCALE * 0.49 > f2y || v.y <= 0) contact.setEnabled(false);
+}
+world.on("pre-solve", function(contact) {
+  const f1 = contact.getFixtureA();
+  const f2 = contact.getFixtureB();
+  presolve(f1, f2, contact);
+  presolve(f2, f1, contact);
+});
+
+
 
 export class Object {
   // this is not java!
@@ -56,19 +77,45 @@ export class Thing extends Object { // why
       t.remove();
     }
   }
-  static load_level(level) {
+  static load_level() {
     Thing.remove_all();
-    const L = levels[level];
+    const L = everything;
+    for (const _ of L.decoration ?? []) new Decoration(_);
     for (const _ of L.houses ?? []) new House(_);
     for (const _ of L.boxes ?? []) new Rectangle(_);
     for (const _ of L.npcs ?? []) new NPC(_);
     for (const _ of L.papers ?? []) new Newspaper(_);
+    if (!player) player = new Player();
+    if (main.level > 1) {
+      player.teleport(0, -1000 * (main.level - 1));
+      setTimeout(camera.jump, 30);
+    }
+    Thing.collect_news();
+    // hack
+    for (const n of NPC.NPCs) {
+      if (n.level === main.level && n.sprite === "npc0") {
+        n.interact();
+        n.dialogue = ["A / D to move left and right. Enter to interact/talk. Double click or F to view newspapers. [Click], Q, or use number keys to switch newspapers. To deliver a newspaper, select one and interact with a house.", "Once you're done, talk to me to check your answer!"];
+      }
+    }
+  }
+  static collect_news() {
+    for (const n of Newspaper.newspapers) {
+      n.drop();
+    }
+    for (const n of Newspaper.newspapers) {
+      if (main.level !== n.level) continue;
+      n.interact();
+    }
   }
 
   xcd;
   ycd;
   name;
   body;
+  level;
+  width;
+  height;
   colour;
   sprite;
   target;
@@ -84,6 +131,7 @@ export class Thing extends Object { // why
     this.xcd = 0;
     this.ycd = 0;
     this.name = "";
+    this.level = 0;
     this.width = 0; // ??
     this.height = 0;
     this.colour = "red"; // temporary
@@ -96,8 +144,12 @@ export class Thing extends Object { // why
 
   load(o) {
     if (o.name != null) this.name = o.name;
-    if (o.flip != null) this.facing = o.flip;
+    if (o.level != null) {
+      this.level = o.level;
+      if (o.y != null) o.y -= (this.level - 1) * 1e3;
+    }
     if (o.sprite != null) this.sprite = o.sprite;
+    if (o.flip != null) this.facing = o.flip;
     if (o.x != null) this.xcd = o.x;
     if (o.y != null) this.ycd = o.y;
     if (o.w != null) this.width = o.w;
@@ -205,6 +257,9 @@ export class Thing extends Object { // why
 
   remove() {
     Thing.things.remove(this);
+    if (this.body) {
+      world.destroyBody(this.body);
+    }
   }
 
 }
@@ -229,8 +284,34 @@ export class NPC extends Thing {
   }
 
   interact() {
-    camera.talkmode = true;
-    camera.talktext = this.dialogue;
+    if ((camera.talktext === this.dialogue || this.sprite === "npc0") && camera.talkmode) {
+      camera.talknext();
+    } else {
+      if (this.sprite === "npc0") {
+        if (House.all_in()) {
+          if (House.check()) {
+            this.dialogue = ["all correct, yay!"];
+            player.launch();
+          } else {
+            this.dialogue = ["it seems like something's awry"];
+          }
+        }
+      }
+      camera.talkmode = true;
+      camera.talktext = this.dialogue;
+      camera.talkindex = 0;
+    }
+  }
+
+  draw() {
+    if (!this.sprite.startsWith("sparkle")) return super.draw();
+    const { x, y } = this.screenv;
+    this.sprite = "sparkle" + (1 + Math.floor((main.time / 40) % 7));
+    draw.image(images[this.sprite], x, y, this.width / camera.size, this.height / camera.size, this.facing);
+  }
+
+  remove() {
+    NPC.NPCs.remove(this);
   }
 
 }
@@ -238,6 +319,7 @@ export class NPC extends Thing {
 
 export class Player extends Thing {
 
+  player;
   jumping;
   jumpable;
   inVENTory;
@@ -245,6 +327,7 @@ export class Player extends Thing {
 
   constructor() {
     super();
+    this.player = true;
     this.jumping = 0;
     this.jumpable = 0;
     this.inVENTory = [];
@@ -253,7 +336,7 @@ export class Player extends Thing {
     this.sprite = "arvind1";
     this.width = 25;
     this.height = 50;
-    this.nc(100, 100);
+    this.nc(0, 100);
     this.create();
   }
 
@@ -261,7 +344,7 @@ export class Player extends Thing {
     const { x, y } = this.screenv;
     const dx = this.body?.getLinearVelocity().x;
     if (dx && Math.abs(dx) > 0.1) this.facing = dx < 0;
-    if (this.jumpable && Math.abs(dx) > 1) this.sprite = "arvind" + (1 + Math.floor((main.time / 90) % 4));
+    if (this.jumpable && Math.abs(dx) > 1) this.sprite = "arvind" + (1 + Math.floor((main.time / (this.sprinting ? 50 : 90)) % 4));
     else this.sprite = "arvind1";
     draw.image(images[this.sprite], x, y, this.width / camera.size, this.height / camera.size, this.facing);
   }
@@ -269,13 +352,17 @@ export class Player extends Thing {
   interact() {
     let m = Number.POSITIVE_INFINITY, thing;
     for (const t of Thing.things) {
-      if (!t.invisible && t.interactable && t.touching(this)) {
+      if (!t.invisible && t.interactable && t !== this && t.touching(this)) {
         const a = Math.abs(t.xcd - this.xcd);
         if (a < m) {
           m = a;
           thing = t;
         }
       }
+    }
+    if (camera.talkmode) {
+      camera.talknext();
+      return;
     }
     thing?.interact();
   }
@@ -291,12 +378,14 @@ export class Player extends Thing {
       linearDamping: 0.5,
       angularDamping: 0,
     });
-    this.body.createFixture({
+    const f = this.body.createFixture({
       shape: new Box(0.49 * this.width / SCALE, 0.49 * this.height / SCALE),
       // shape: new Circle(0.49 * this.width / SCALE),
       density: 1,
       friction: 0.3,
     });
+    this.fixture = f;
+    f.thing = this;
   }
 
   tick() {
@@ -312,9 +401,10 @@ export class Player extends Thing {
       });
     }
     if (closest) this.jumpable = true;
-    const dx = (main.keys["KeyA"] || main.keys["ArrowLeft"]) ? -1 : (main.keys["KeyD"] || main.keys["ArrowRight"]) ? 1: 0;
+    this.sprinting = main.keys.Shift && this.jumpable;
+    const dx = (this.sprinting ? 2 : 1) * ((main.keys["KeyA"] || main.keys["ArrowLeft"]) ? -1 : (main.keys["KeyD"] || main.keys["ArrowRight"]) ? 1: 0);
     const dy = (main.keys["KeyW"] || main.keys["ArrowUp"]) ? 0 : (main.keys["KeyS"] || main.keys["ArrowDown"]) ? 1: 0;
-    player.move(dx * 5, dy * 5);
+    player.move(dx * 6, dy * 5);
     if (main.keys["KeyW"] || main.keys["Space"]) {
       player.jump();
     }
@@ -324,17 +414,23 @@ export class Player extends Thing {
     if (!this.jumpable || main.time - this.jumptime < 100) return;
     this.jumpable = false;
     this.jumptime = main.time;
+    const vx = player.body.getLinearVelocity().x;
+    player.body.setLinearVelocity({ x: vx, y: 0 });
     player.move(0, -30);
   }
 
-  // deliver(targetnews, targethouse) {
-  //   n = this.inVENTory.filter(e => e !== targetnews);
-  //   House.houses[targethouse].newsID = targetnews;
-  // }
+  launch() {
+    main.level++;
+    const vx = player.body.getLinearVelocity().x;
+    player.body.setLinearVelocity({ x: vx, y: 0 });
+    player.move(0, -133);
+    Thing.collect_news();
+  }
 
-  // getback(targethouse) {
-  //   this.inVENTory[this.inVENTory.length] = House.houses[targethouse].newsID;
-  // }
+  teleport(dx, dy) {
+    const { x, y } = player.body.getPosition();
+    player.body.setPosition( { x: x + dx / SCALE, y: y + dy / SCALE });
+  }
 
 }
 
@@ -345,9 +441,16 @@ export class House extends Thing {
   static houses = [];
   static check() {
     for (const h of House.houses) {
+      if (h.level !== main.level) continue;
       if (h.expected !== h.newsID) return false;
     }
-    alert("yay!");
+    return true;
+  };
+  static all_in() {
+    for (const n of Newspaper.newspapers) {
+      if (n.level !== main.level) continue;
+      if (n.house == undefined || n.house.houseID === -1) return false;
+    }
     return true;
   };
 
@@ -367,7 +470,7 @@ export class House extends Thing {
   }
 
   remove()  {
-    console.error("don't delete houses this might break stuff");
+    House.houses.remove(this);
   }
 
   // draw() {
@@ -382,6 +485,13 @@ export class House extends Thing {
   // }
 
   interact() {
+    if (this.width < 100) {
+      camera.menumode = true;
+      Thing.remove_all();
+      player.remove();
+      player = undefined;
+      return;
+    }
     if (this.newsID === -1) {
       const index = player.inVENTory.length === 1 ? 0 : player.inVENTdex;
       if (player.inVENTory.length > 0 && index >= 0) {
@@ -433,16 +543,16 @@ export class Newspaper extends Thing {
     }
     ctx.fillStyle = "#111";
     draw.set_font(this.width / camera.size / 2);
-    if (this.newsID !== -1) ctx.fillText(this.newsID, x, y);
+    if (this.newsID !== -1) ctx.fillText("ABCABCABCD"[this.newsID], x, y);
     return { x, y };
   }
 
   interact() {
-    console.log(this.newsID + "interact");
     this.pick();
     if (this.house) {
       this.house.newsID = -1;
       this.house.interactable = true;
+      delete this.house;
     }
   }
 
@@ -479,16 +589,23 @@ export class Newspaper extends Thing {
     if (camera.newsmode) camera.newsmode = false;
   }
 
+  remove() {
+    Newspaper.newspapers.remove(this);
+  }
+
 }
 
 
 
 export class Rectangle extends Thing {
 
+  oneway;
+
   constructor(o) {
     super();
     this.load(o);
-    this.create();
+    this.oneway = true;
+    if (!o.nobody) this.create();
   }
 
   create() {
@@ -497,12 +614,25 @@ export class Rectangle extends Thing {
       position: new Vec2(this.xcd / SCALE, this.ycd / SCALE),
       angle: 0,
     });
-    this.body.createFixture({
+    const f = this.body.createFixture({
       shape: new Box(this.width / SCALE / 2, this.height / SCALE / 2),
     });
+    this.fixture = f;
+    f.thing = this;
   }
 
 }
 
 
-export const player = new Player();
+
+export class Decoration extends Thing {
+
+  constructor(o) {
+    super();
+    this.load(o);
+  }
+
+}
+
+
+export let player;

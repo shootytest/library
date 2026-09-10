@@ -1,17 +1,9 @@
 import { images } from "./data.js";
 import { ctx } from "./index.js";
-import { createNoise2D, createNoise3D, createNoise4D } from "https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/+esm";
 
 const round = Math.round;
-export const noise2 = createNoise2D();
-export const noise3 = createNoise3D();
-export const noise4  = createNoise4D();
 
 export const draw = {
-
-  noise2: noise2,
-  noise3: noise3,
-  noise4: noise4,
 
   line: function(x1, y1, x2, y2) {
     ctx.beginPath();
@@ -112,55 +104,20 @@ export const draw = {
     }
     return lines.length;
   },
-  image: function(image, x, y, w, h, flip = false) {
+  image: function(image, x, y, w, h, flip = false, smooth = false) {
     if (flip) {
       ctx.save();
       ctx.scale(-1, 1);
       x *= -1;
+      if ((typeof flip === "number") && flip >= 2) {
+        ctx.scale(1, -1);
+        y *= -1;
+      }
     }
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = smooth;
     ctx.drawImage(typeof image === "string" ? images[image] : image, x - w / 2, y - h / 2, w, h);
     if (flip) ctx.restore();
   },
-  svg: function(name, x, y, r, a = 0) {
-    if (!svg[name]) {
-      console.warn("no such svg: " + name);
-      return;
-    }
-    const stored = ctx.getTransform();
-    ctx.translate(x, y);
-    ctx.rotate(a);
-    ctx.translate(-r / 2, -r / 2);
-    ctx.scale(r / 24, r / 24);
-    if (!svg_path2ds[name]) {
-      const path2d = new Path2D(svg[name]);
-      svg_path2ds[name] = path2d;
-      ctx.fill(path2d);
-    } else {
-      ctx.fill(svg_path2ds[name]);
-    }
-    ctx.setTransform(stored);
-  },
-  svg_stroke: function(name, x, y, r, a = 0) {
-    if (!svg[name]) {
-      console.warn("no such svg: " + name);
-      return;
-    }
-    const stored = ctx.getTransform();
-    ctx.translate(x, y);
-    ctx.rotate(a);
-    ctx.translate(-r / 2, -r / 2);
-    ctx.scale(r / 24, r / 24);
-    if (!svg_path2ds[name]) {
-      const path2d = new Path2D(svg[name]);
-      svg_path2ds[name] = path2d;
-      ctx.stroke(path2d);
-    } else {
-      ctx.stroke(svg_path2ds[name]);
-    }
-    ctx.setTransform(stored);
-  },
-
   reset_transform: function() {
     ctx.resetTransform();
     const r = Math.min(2, window.devicePixelRatio);
@@ -168,11 +125,3 @@ export const draw = {
   },
 
 };
-
-export const svg = {
-
-  arrow_left: "m10 18l-6-6l6-6l1.4 1.45L7.85 11H20v2H7.85l3.55 3.55z",
-
-};
-
-const svg_path2ds = {};

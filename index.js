@@ -1,8 +1,8 @@
 import { camera } from "./camera.js";
 import { draw } from "./draw.js";
-import { Newspaper, player, Thing } from "./objects.js";
+import { Newspaper, NPC, player, Thing } from "./objects.js";
 
-// so you can do list.remove(item in list)
+// for list.remove(item in list)
 if (!Array.prototype.remove) {
   Array.prototype.remove = function(value) {
     const index = this.indexOf(value);
@@ -13,8 +13,16 @@ if (!Array.prototype.remove) {
   };
 }
 
+
 export const canvas = document.querySelector("canvas");
 export const ctx = canvas.getContext("2d");
+export const music = new Audio("jam.mp3");
+
+music.loop = true;
+music.volume = 0.9;
+music.addEventListener("canplaythrough", function(event) {
+  music.play();
+});
 
 export const main = {
   width: window.innerWidth,
@@ -55,20 +63,18 @@ export const mouse = {
   },
 };
 
-function arvind() {
+function __arvind() {
   console.log("A.A. Greeneswaran Tea");
   console.log("greentea");
 };
 
 function init() {
-  arvind();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.imageSmoothingEnabled = false;
   resize();
-  Thing.load_level(main.level);
   requestAnimationFrame(tick);
 };
 
@@ -81,9 +87,14 @@ function draw_main() {
   draw.rectangle(main.cx, main.cy, main.size, main.size);
   ctx.fill();
   ctx.clip();
-  Thing.draw_all();
-  camera.draw();
-  Thing.draw_after();
+  camera.sky();
+  if (!camera.menumode) {
+    Thing.draw_all();
+    camera.draw();
+    Thing.draw_after();
+  } else {
+    camera.draw_menu();
+  }
   ctx.restore();
 };
 
@@ -94,23 +105,43 @@ function tick(time) {
   draw_main();
   camera.tick();
   if (main.keys["KeyE"] === 2 || main.keys["Enter"] === 2) {
-    camera.talkmode = false;
-    player.interact();
+    player?.interact();
   }
-  if (main.keys["KeyF"] === 2 || main.keys["Backslash"] === 2) {
+  if (main.keys["Shift"] && main.keys["Digit0"] === 2) {
+    for (const n of Newspaper.newspapers) {
+      n.interact();
+    }
+  }
+  if (main.keys["Shift"] && main.keys["Backquote"] === 2) {
+    player?.launch();
+  }
+  if (main.keys["KeyF"] === 2 || main.keys["KeyB"] === 2 || main.keys["Backslash"] === 2) {
     camera.newsmode = !camera.newsmode;
   }
-  if (main.keys["Escape"] === 2 || main.keys["Backquote"] === 2) {
+  if (main.keys["Escape"] === 2) {
     camera.newsmode = false;
     camera.talkmode = false;
   }
-  if (main.keys["BracketLeft"] === 2) {
-    player.inVENTdex = (player.inVENTdex + player.inVENTory.length - 1) % player.inVENTory.length;
-    Newspaper.newspapers[player.inVENTory[player.inVENTdex]].click();
-  }
-  if (main.keys["BracketRight"] === 2 || main.keys["KeyQ"] === 2) {
-    player.inVENTdex = (player.inVENTdex + 1) % player.inVENTory.length;
-    Newspaper.newspapers[player.inVENTory[player.inVENTdex]].click();
+  if (player?.inVENTory?.length ?? 0 > 0) {
+    for (let i = 1; i <= player.inVENTory.length; i++) {
+      if (main.keys["Digit" + i] === 2 || main.keys["Numpad" + i] === 2) {
+        if (player.inVENTdex === i - 1) {
+          camera.newsmode = !camera.newsmode;
+          continue;
+        }
+        player.inVENTdex = i - 1;
+        camera.newsmode = true;
+        Newspaper.newspapers[player.inVENTory[player.inVENTdex]].click();
+      }
+    }
+    if (main.keys["BracketLeft"] === 2) {
+      player.inVENTdex = (player.inVENTdex + player.inVENTory.length - 1) % player.inVENTory.length;
+      Newspaper.newspapers[player.inVENTory[player.inVENTdex]]?.click();
+    }
+    if (main.keys["BracketRight"] === 2 || main.keys["KeyQ"] === 2) {
+      player.inVENTdex = (player.inVENTdex + 1) % player.inVENTory.length;
+      Newspaper.newspapers[player.inVENTory[player.inVENTdex]]?.click();
+    }
   }
   Thing.tick_physics(dt);
   Thing.tick_all(dt);
@@ -143,17 +174,21 @@ function keydown(event) {
   if (event.repeat) return;
   const no_mod = !event.ctrlKey && !event.metaKey && !event.altKey;
   if (no_mod) event.preventDefault();
+  music.play();
   main.keys[event.code] = 2;
+  main.keys["Shift"] = event.shiftKey ? 2 : 0;
 };
 function keyup(event) {
   if (event.repeat) return;
   main.keys[event.code] = 0;
+  main.keys["Shift"] = event.shiftKey ? 1 : 0;
 };
 function keyclear() {
   main.keys = {};
 };
 function touchdown(event) {
   event.preventDefault();
+  music.play();
   for (const touch of event.changedTouches) {
     const o = {
       x: touch.clientX * main.ratio,
@@ -165,6 +200,7 @@ function touchdown(event) {
   }
 };
 function mousedown(event) {
+  music.play();
   const o = {
     x: event.clientX * main.ratio,
     y: event.clientY * main.ratio,

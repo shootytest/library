@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css?family=Roboto+Mono&display=swap');
 @import url('https://fonts.googleapis.com/css?family=Monofett&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Oldenburg&display=swap');
+@font-face {
+  font-family: "press";
+  src: url("Press\ Style.ttf");
+}
 
 * {
   box-sizing: border-box;
