@@ -125,6 +125,7 @@ export const camera = {
       ctx.fillStyle = "#eee";
       draw.split_text(camera.talktext[camera.talkindex], x, y, main.size * 0.8, size * 4, size * 0.5);
     }
+    if (main.level >= 4) camera.draw_end();
   },
 
   draw_menu: function() {
@@ -133,11 +134,11 @@ export const camera = {
     ctx.beginPath();
     draw.rectangle(x, y + size * 8.75, w, size * 2.5);
     ctx.fill();
-    ctx.fillStyle = "#111";
-    draw.set_font(size * 3.5, "bold", "press");
     draw.image("mansion1", x, y, size * 16, size * 16);
     draw.image("arvind1", x - size, y + size * 6, size * 1.5, size * 3);
-    ctx.fillText("NEWSPAPER BOY", x, y - main.size * 0.36);
+    ctx.fillStyle = "#111";
+    draw.set_font(size * 3.5, "bold", "press");
+    ctx.fillText("NEWSPAPER CAPER", x, y - main.size * 0.36);
     if (camera.blurmode) {
       camera.draw_blur();
     } else {
@@ -158,6 +159,13 @@ export const camera = {
         }
       }
     }
+  },
+
+  draw_end: function() {
+    let x = main.cx, y = main.cy, w = main.size, h = main.size, size = main.size * 0.05;
+    ctx.fillStyle = "#111";
+    draw.set_font(size * 2, "bold", "press");
+    ctx.fillText("THANKS FOR PLAYING!", x, y - main.size * 0.2);
   },
 
   draw_blur: function() {

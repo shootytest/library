@@ -107,11 +107,6 @@ function tick(time) {
   if (main.keys["KeyE"] === 2 || main.keys["Enter"] === 2) {
     player?.interact();
   }
-  if (main.keys["Shift"] && main.keys["Digit0"] === 2) {
-    for (const n of Newspaper.newspapers) {
-      n.interact();
-    }
-  }
   if (main.keys["Shift"] && main.keys["Backquote"] === 2) {
     player?.launch();
   }

@@ -93,9 +93,9 @@ export class Thing extends Object { // why
     Thing.collect_news();
     // hack
     for (const n of NPC.NPCs) {
-      if (n.level === main.level && n.sprite === "npc0") {
-        n.interact();
-        n.dialogue = ["A / D to move left and right. Enter to interact/talk. Double click or F to view newspapers. [Click], Q, or use number keys to switch newspapers. To deliver a newspaper, select one and interact with a house.", "Once you're done, talk to me to check your answer!"];
+      if (n.sprite === "npc0") {
+        if (n.level === main.level) n.interact();
+        n.dialogue = ["A / D to move left and right. \n Enter to interact/talk. \n Double click or F to view newspapers. \n [Click], Q, or use number keys to switch newspapers. To deliver a newspaper, select one and interact with a house.", "Once you're done, talk to me to check your answer!"];
       }
     }
   }
@@ -404,7 +404,7 @@ export class Player extends Thing {
     this.sprinting = main.keys.Shift && this.jumpable;
     const dx = (this.sprinting ? 2 : 1) * ((main.keys["KeyA"] || main.keys["ArrowLeft"]) ? -1 : (main.keys["KeyD"] || main.keys["ArrowRight"]) ? 1: 0);
     const dy = (main.keys["KeyW"] || main.keys["ArrowUp"]) ? 0 : (main.keys["KeyS"] || main.keys["ArrowDown"]) ? 1: 0;
-    player.move(dx * 6, dy * 5);
+    player.move(dx * 5, dy * 5);
     if (main.keys["KeyW"] || main.keys["Space"]) {
       player.jump();
     }
@@ -486,10 +486,7 @@ export class House extends Thing {
 
   interact() {
     if (this.width < 100) {
-      camera.menumode = true;
-      Thing.remove_all();
-      player.remove();
-      player = undefined;
+      window.location.reload();
       return;
     }
     if (this.newsID === -1) {
